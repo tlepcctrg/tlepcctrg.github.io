@@ -1,0 +1,403 @@
+================================================================================
+  LOAD TEST SCENARIO - FILE MANAGEMENT API
+  Tool:    k6 (https://k6.io)
+  Version: 1.0.0
+  Date:    2026-05-06
+================================================================================
+
+OVERVIEW
+--------
+This document describes the load test scenario for a File Management API.
+It covers four core operations:
+  1. Upload File
+  2. Download File
+  3. Search File with Metadata
+  4. Get File List in Folder
+
+TARGET ENVIRONMENT
+------------------
+  Base URL  : https://api.example.com
+  Auth Type : Bearer Token (JWT)
+  Protocol  : HTTPS
+
+LOAD PROFILE
+------------
+  Ramp-up   : 0 -> 50 virtual users over 1 minute
+  Steady    : 50 virtual users for 5 minutes
+  Ramp-down : 50 -> 0 virtual users over 1 minute
+  Total Duration: ~7 minutes
+
+SUCCESS THRESHOLDS
+------------------
+  - 95th percentile response time < 2000ms
+  - Error rate < 1%
+  - All checks pass rate > 99%
+
+================================================================================
+SCENARIO 1: UPLOAD FILE
+================================================================================
+
+  Endpoint  : POST /api/v1/files/upload
+  Auth      : Bearer Token required
+  Content-Type: multipart/form-data
+
+  Request Headers:
+    Authorization : Bearer <token>
+    Accept        : application/json
+
+  Request Body (multipart/form-data):
+    file          : <binary file content>   (required)
+    folder_id     : "folder-uuid-001"       (required)
+    description   : "Test file upload"      (optional)
+    tags          : "test,load,performance" (optional)
+    is_public     : false                   (optional)
+
+  Expected Response (201 Created):
+    {
+      "file_id"     : "file-uuid-xxx",
+      "file_name"   : "testfile.txt",
+      "folder_id"   : "folder-uuid-001",
+      "size_bytes"  : 1024,
+      "mime_type"   : "text/plain",
+      "tags"        : ["test", "load", "performance"],
+      "uploaded_at" : "2026-05-06T06:00:00Z",
+      "download_url": "/api/v1/files/file-uuid-xxx/download"
+    }
+
+  Checks:
+    [PASS] HTTP status == 201
+    [PASS] Response body contains "file_id"
+    [PASS] Response body contains "download_url"
+    [PASS] Response time < 3000ms
+
+  Test Data:
+    - File size range : 1 KB - 5 MB
+    - File types      : .txt, .pdf, .jpg, .docx
+    - Generate unique filename per VU per iteration
+
+================================================================================
+SCENARIO 2: DOWNLOAD FILE
+================================================================================
+
+  Endpoint  : GET /api/v1/files/{file_id}/download
+  Auth      : Bearer Token required
+
+  Path Parameters:
+    file_id : string (UUID of the file to download)
+
+  Request Headers:
+    Authorization : Bearer <token>
+    Accept        : application/octet-stream
+
+  Example Request:
+    GET /api/v1/files/file-uuid-001/download
+
+  Expected Response (200 OK):
+    Content-Type        : application/octet-stream
+    Content-Disposition : attachment; filename="testfile.txt"
+    Body                : <binary file content>
+
+  Checks:
+    [PASS] HTTP status == 200
+    [PASS] Content-Disposition header is present
+    [PASS] Content-Length > 0
+    [PASS] Response time < 2000ms
+
+  Test Data:
+    - Pre-seeded file IDs (at least 100 unique files in target folder)
+    - Select file_id randomly from pre-seeded list each iteration
+
+================================================================================
+SCENARIO 3: SEARCH FILE WITH METADATA
+================================================================================
+
+  Endpoint  : GET /api/v1/files/search
+  Auth      : Bearer Token required
+
+  Query Parameters (at least one required):
+    keyword      : string  - Full-text search term (file name / description)
+    tags         : string  - Comma-separated tag list e.g. "test,report"
+    folder_id    : string  - Filter results to a specific folder
+    mime_type    : string  - Filter by MIME type e.g. "application/pdf"
+    uploaded_from: date    - ISO 8601 start date e.g. "2026-01-01"
+    uploaded_to  : date    - ISO 8601 end date   e.g. "2026-05-06"
+    page         : integer - Page number (default: 1)
+    page_size    : integer - Items per page (default: 20, max: 100)
+
+  Example Request:
+    GET /api/v1/files/search?keyword=report&tags=finance&page=1&page_size=20
+
+  Request Headers:
+    Authorization : Bearer <token>
+    Accept        : application/json
+
+  Expected Response (200 OK):
+    {
+      "total"    : 45,
+      "page"     : 1,
+      "page_size": 20,
+      "results"  : [
+        {
+          "file_id"     : "file-uuid-001",
+          "file_name"   : "annual_report.pdf",
+          "folder_id"   : "folder-uuid-001",
+          "description" : "Annual finance report",
+          "tags"        : ["finance", "report"],
+          "size_bytes"  : 204800,
+          "mime_type"   : "application/pdf",
+          "uploaded_at" : "2026-03-15T09:00:00Z"
+        }
+      ]
+    }
+
+  Checks:
+    [PASS] HTTP status == 200
+    [PASS] Response body contains "results" array
+    [PASS] Response body contains "total"
+    [PASS] results array length <= page_size
+    [PASS] Response time < 2000ms
+
+  Test Data - Search Combinations (rotate randomly across VUs):
+    1. keyword="report"
+    2. tags="test"
+    3. keyword="document" & mime_type="application/pdf"
+    4. folder_id="folder-uuid-001" & uploaded_from="2026-01-01"
+    5. tags="load,performance" & page_size=50
+
+================================================================================
+SCENARIO 4: GET FILE LIST IN FOLDER
+================================================================================
+
+  Endpoint  : GET /api/v1/folders/{folder_id}/files
+  Auth      : Bearer Token required
+
+  Path Parameters:
+    folder_id : string (UUID of the target folder)
+
+  Query Parameters:
+    page       : integer - Page number (default: 1)
+    page_size  : integer - Items per page (default: 20, max: 100)
+    sort_by    : string  - Field to sort by: "name", "size", "uploaded_at"
+    sort_order : string  - "asc" or "desc" (default: "asc")
+
+  Example Request:
+    GET /api/v1/folders/folder-uuid-001/files?page=1&page_size=20&sort_by=uploaded_at&sort_order=desc
+
+  Request Headers:
+    Authorization : Bearer <token>
+    Accept        : application/json
+
+  Expected Response (200 OK):
+    {
+      "folder_id" : "folder-uuid-001",
+      "total"     : 120,
+      "page"      : 1,
+      "page_size" : 20,
+      "files"     : [
+        {
+          "file_id"    : "file-uuid-001",
+          "file_name"  : "document.pdf",
+          "size_bytes" : 102400,
+          "mime_type"  : "application/pdf",
+          "uploaded_at": "2026-05-01T08:00:00Z"
+        }
+      ]
+    }
+
+  Checks:
+    [PASS] HTTP status == 200
+    [PASS] Response body contains "files" array
+    [PASS] Response body contains "folder_id" matching request
+    [PASS] files array length <= page_size
+    [PASS] Response time < 1500ms
+
+  Test Data:
+    - Pre-seeded folder IDs: ["folder-uuid-001", "folder-uuid-002", "folder-uuid-003"]
+    - Rotate folder_id across VUs
+    - Vary page and sort_order per iteration
+
+================================================================================
+EXECUTION FLOW PER VIRTUAL USER
+================================================================================
+
+  Each VU runs the following sequence in every iteration:
+
+    Step 1 --> Authenticate
+               POST /api/v1/auth/login
+               Store returned JWT token for subsequent requests
+
+    Step 2 --> Upload File            (Scenario 1)
+               Store returned file_id
+
+    Step 3 --> Get File List          (Scenario 4)
+               Confirm uploaded file appears in folder
+
+    Step 4 --> Search File            (Scenario 3)
+               Search using keyword derived from uploaded filename
+
+    Step 5 --> Download File          (Scenario 2)
+               Use file_id from Step 2
+
+    Step 6 --> Think time: 1-3 seconds (random)
+
+================================================================================
+SAMPLE k6 SCRIPT (JavaScript)
+================================================================================
+
+  Save as : file-api-load-test.js
+  Run with: k6 run file-api-load-test.js
+
+  ---------- BEGIN SCRIPT ----------
+
+  import http from "k6/http";
+  import { check, sleep } from "k6";
+
+  export const options = {
+    stages: [
+      { duration: "1m", target: 50 },  // Ramp up
+      { duration: "5m", target: 50 },  // Steady state
+      { duration: "1m", target: 0  },  // Ramp down
+    ],
+    thresholds: {
+      http_req_duration: ["p(95)<2000"],
+      http_req_failed:   ["rate<0.01"],
+    },
+  };
+
+  const BASE_URL   = "https://api.example.com";
+  const USERNAME   = "loadtest@example.com";
+  const PASSWORD   = "LoadTest@2026";
+  const FOLDER_IDS = ["folder-uuid-001", "folder-uuid-002", "folder-uuid-003"];
+  const KEYWORDS   = ["report", "document", "test", "finance", "invoice"];
+
+  function authenticate() {
+    const res = http.post(
+      `${BASE_URL}/api/v1/auth/login`,
+      JSON.stringify({ username: USERNAME, password: PASSWORD }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+    check(res, { "auth: status 200": (r) => r.status === 200 });
+    return res.json("access_token");
+  }
+
+  function uploadFile(token, folderId) {
+    const fileName    = `testfile_${__VU}_${__ITER}.txt`;
+    const fileContent = `Load test content - VU ${__VU} Iter ${__ITER}`;
+    const formData = {
+      file:        http.file(fileContent, fileName, "text/plain"),
+      folder_id:   folderId,
+      description: "Load test upload",
+      tags:        "test,load",
+    };
+    const res = http.post(`${BASE_URL}/api/v1/files/upload`, formData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    check(res, {
+      "upload: status 201":       (r) => r.status === 201,
+      "upload: has file_id":      (r) => r.json("file_id") !== undefined,
+      "upload: has download_url": (r) => r.json("download_url") !== undefined,
+    });
+    return res.json("file_id");
+  }
+
+  function downloadFile(token, fileId) {
+    const res = http.get(`${BASE_URL}/api/v1/files/${fileId}/download`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept:        "application/octet-stream",
+      },
+    });
+    check(res, {
+      "download: status 200":          (r) => r.status === 200,
+      "download: content-disposition": (r) =>
+        r.headers["Content-Disposition"] !== undefined,
+      "download: content-length > 0":  (r) =>
+        parseInt(r.headers["Content-Length"]) > 0,
+    });
+  }
+
+  function searchFile(token, keyword) {
+    const url = `${BASE_URL}/api/v1/files/search?keyword=${keyword}&page=1&page_size=20`;
+    const res = http.get(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    check(res, {
+      "search: status 200":  (r) => r.status === 200,
+      "search: has results": (r) => Array.isArray(r.json("results")),
+      "search: has total":   (r) => r.json("total") !== undefined,
+    });
+  }
+
+  function getFileList(token, folderId) {
+    const url =
+      `${BASE_URL}/api/v1/folders/${folderId}/files` +
+      `?page=1&page_size=20&sort_by=uploaded_at&sort_order=desc`;
+    const res = http.get(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    check(res, {
+      "list: status 200":     (r) => r.status === 200,
+      "list: has files":      (r) => Array.isArray(r.json("files")),
+      "list: correct folder": (r) => r.json("folder_id") === folderId,
+    });
+  }
+
+  export default function () {
+    const folderId = FOLDER_IDS[__VU % FOLDER_IDS.length];
+    const keyword  = KEYWORDS[__ITER % KEYWORDS.length];
+
+    const token  = authenticate();
+    const fileId = uploadFile(token, folderId);
+
+    getFileList(token, folderId);
+    searchFile(token, keyword);
+
+    if (fileId) {
+      downloadFile(token, fileId);
+    }
+
+    sleep(Math.random() * 2 + 1);  // Think time: 1-3 seconds
+  }
+
+  ---------- END SCRIPT ----------
+
+================================================================================
+HOW TO RUN
+================================================================================
+
+  Prerequisites:
+    1. Install k6: https://k6.io/docs/getting-started/installation/
+    2. Replace BASE_URL, USERNAME, PASSWORD with real values
+    3. Pre-seed test data (folders and files) in the target environment
+
+  Commands:
+    # Run with default options defined in script
+    k6 run file-api-load-test.js
+
+    # Override VUs and duration via CLI
+    k6 run --vus 100 --duration 10m file-api-load-test.js
+
+    # Output results to JSON file
+    k6 run --out json=results.json file-api-load-test.js
+
+    # Output results to InfluxDB + Grafana dashboard
+    k6 run --out influxdb=http://localhost:8086/k6 file-api-load-test.js
+
+================================================================================
+METRICS TO MONITOR
+================================================================================
+
+  Metric                    | Description                         | Target
+  --------------------------|-------------------------------------|----------
+  http_req_duration (p95)   | 95th percentile response time       | < 2000ms
+  http_req_duration (p99)   | 99th percentile response time       | < 5000ms
+  http_req_failed           | Error rate                          | < 1%
+  http_reqs                 | Total request throughput            | Monitor
+  checks                    | Percentage of successful assertions | > 99%
+  data_sent                 | Total data sent (upload scenario)   | Monitor
+  data_received             | Total data received (download)      | Monitor
+  vus                       | Active virtual users                | As target
+
+================================================================================
+END OF LOAD TEST SCENARIO
+================================================================================
