@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+option csharp_namespace = "FMS.Contracts";
+
+package fms;
+
+// StorageService is the internal, DMS-only gRPC contract exposed by the
+// File Management Service (FMS). It never streams binary payloads - it only
+// issues short-lived pre-signed URLs and performs control-plane operations
+// against the underlying object storage provider.
+service StorageService {
+  // Initiates an upload session and returns a pre-signed PUT URL (single
+  // part) or a set of pre-signed part URLs (multipart upload).
+  rpc InitUpload (InitUploadRequest) returns (InitUploadResponse);
+
+  // Completes a multipart upload once all parts have been confirmed by the
+  // client. No-op for single-part uploads.
+  rpc CompleteMultipartUpload (CompleteMultipartUploadRequest) returns (CompleteMultipartUploadResponse);
+
+  // Verifies that an object exists in the temporary zone, matches the
+  // expected size/hash, and performs a server-side copy/move into the
+  // permanent prefix.
+  rpc CommitUpload (CommitUploadRequest) returns (CommitUploadResponse);
+
+  // Mints a short-TTL pre-signed GET URL for downloading a committed object.
+  rpc GetDownloadUrl (DownloadRequest) returns (DownloadResponse);
+
+  // Deletes an object (temporary or permanent) from the storage provider.
+  rpc DeleteObject (DeleteObjectRequest) returns (DeleteObjectResponse);
+
+  // Returns metadata (size/etag) for an object without downloading it.
+  rpc HeadObject (HeadObjectRequest) returns (HeadObjectResponse);
+}
+
+message InitUploadRequest {
+  string tenant_id = 1;
+  string upload_session_id = 2;
+  string object_key = 3;
+  string content_type = 4;
+  int64 expected_size = 5;
+  bool multipart = 6;
+  int32 part_count = 7;
+}
+
+message PresignedPart {
+  int32 part_number = 1;
+  string url = 2;
+}
+
+message InitUploadResponse {
+  string presigned_put_url = 1;
+  repeated PresignedPart parts = 2;
+  int64 expiry_unix_seconds = 3;
+  string multipart_upload_id = 4;
+}
+
+message CompleteMultipartUploadRequest {
+  string tenant_id = 1;
+  string object_key = 2;
+  string multipart_upload_id = 3;
+  repeated CompletedPart parts = 4;
+}
+
+message CompletedPart {
+  int32 part_number = 1;
+  string etag = 2;
+}
+
+message CompleteMultipartUploadResponse {
+  bool succeeded = 1;
+  string etag = 2;
+}
+
+message CommitUploadRequest {
+  string tenant_id = 1;
+  string object_key = 2;
+  string upload_session_id = 3;
+  int64 expected_size = 4;
+  string expected_sha256 = 5;
+  string permanent_key = 6;
+}
+
+message CommitUploadResponse {
+  bool exists = 1;
+  int64 size = 2;
+  string etag = 3;
+  string final_key = 4;
+}
+
+message DownloadRequest {
+  string tenant_id = 1;
+  string object_key = 2;
+}
+
+message DownloadResponse {
+  string presigned_get_url = 1;
+  int64 expiry_unix_seconds = 2;
+}
+
+message DeleteObjectRequest {
+  string tenant_id = 1;
+  string object_key = 2;
+}
+
+message DeleteObjectResponse {
+  bool deleted = 1;
+}
+
+message HeadObjectRequest {
+  string tenant_id = 1;
+  string object_key = 2;
+}
+
+message HeadObjectResponse {
+  bool found = 1;
+  int64 size = 2;
+  string etag = 3;
+}

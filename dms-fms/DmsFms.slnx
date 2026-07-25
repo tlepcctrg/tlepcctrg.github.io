@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DMS.Api/DMS.Api.csproj" />
+    <Project Path="src/FMS.Api/FMS.Api.csproj" />
+    <Project Path="src/FMS.Contracts/FMS.Contracts.csproj" />
+  </Folder>
+</Solution>

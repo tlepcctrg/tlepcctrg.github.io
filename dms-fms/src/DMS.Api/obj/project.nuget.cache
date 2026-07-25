@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "dgSpecHash": "PBFJ7aK6vxE=",
+  "success": true,
+  "projectFilePath": "/home/runner/work/tlepcctrg.github.io/tlepcctrg.github.io/dms-fms/src/DMS.Api/DMS.Api.csproj",
+  "expectedPackageFiles": [
+    "/home/runner/.nuget/packages/confluent.kafka/2.6.1/confluent.kafka.2.6.1.nupkg.sha512",
+    "/home/runner/.nuget/packages/dnsclient/1.6.1/dnsclient.1.6.1.nupkg.sha512",
+    "/home/runner/.nuget/packages/google.protobuf/3.30.2/google.protobuf.3.30.2.nupkg.sha512",
+    "/home/runner/.nuget/packages/grpc.aspnetcore.server/2.71.0/grpc.aspnetcore.server.2.71.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/grpc.core.api/2.71.0/grpc.core.api.2.71.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/grpc.net.client/2.71.0/grpc.net.client.2.71.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/grpc.net.clientfactory/2.71.0/grpc.net.clientfactory.2.71.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/grpc.net.common/2.71.0/grpc.net.common.2.71.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/librdkafka.redist/2.6.1/librdkafka.redist.2.6.1.nupkg.sha512",
+    "/home/runner/.nuget/packages/mongodb.bson/3.1.0/mongodb.bson.3.1.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/mongodb.driver/3.1.0/mongodb.driver.3.1.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/pipelines.sockets.unofficial/2.2.8/pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
+    "/home/runner/.nuget/packages/sharpcompress/1.0.0/sharpcompress.1.0.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/snappier/1.3.1/snappier.1.3.1.nupkg.sha512",
+    "/home/runner/.nuget/packages/stackexchange.redis/2.8.24/stackexchange.redis.2.8.24.nupkg.sha512",
+    "/home/runner/.nuget/packages/zstdsharp.port/0.7.3/zstdsharp.port.0.7.3.nupkg.sha512"
+  ],
+  "logs": []
+}

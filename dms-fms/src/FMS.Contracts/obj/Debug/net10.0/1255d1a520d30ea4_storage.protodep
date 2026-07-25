@@ -1,0 +1,2 @@
+obj/Debug/net10.0/Protos/Storage.cs \
+obj/Debug/net10.0/Protos/StorageGrpc.cs: Protos/storage.proto
